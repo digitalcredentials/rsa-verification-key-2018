@@ -1,28 +1,30 @@
 /*!
  * Copyright (c) 2018-2019 Digital Bazaar, Inc. All rights reserved.
  */
-'use strict';
+import chai from 'chai';
+chai.should();
+const {expect} = chai;
 
-const chai = require('chai');
+import forge from 'node-forge';
+import multibase from 'multibase';
+import multicodec from 'multicodec';
+import multihashes from 'multihashes';
+import {RsaVerificationKey2018} from '../../';
 const {
   md: {sha256},
   pki: {getPublicKeyFingerprint, publicKeyFromPem}
-} = require('node-forge');
-const multibase = require('multibase');
-const multicodec = require('multicodec');
-const multihashes = require('multihashes');
-chai.should();
+} = forge;
 
-const {expect} = chai;
-
-const RSAKeyPair = require('..');
-
-describe('RSAKeyPair', () => {
+describe('RsaVerificationKey2018', () => {
   describe('export', () => {
     it('should export id, type and key material', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       keyPair.id = '#test-id';
-      const exported = await keyPair.export({publicKey: true, privateKey: true});
+      const exported = await keyPair.export({
+        publicKey: true, privateKey: true
+      });
+
+      console.log(JSON.stringify(exported, null, 2));
 
       expect(exported.id).to.equal('#test-id');
       expect(exported.type).to.equal('RsaVerificationKey2018');
@@ -33,14 +35,14 @@ describe('RSAKeyPair', () => {
 
   describe('fingerprint', () => {
     it('should create an RSA key fingerprint', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       const fingerprint = keyPair.fingerprint();
       fingerprint.should.be.a('string');
       fingerprint.startsWith('z').should.be.true;
     });
     // FIXME: https://github.com/digitalbazaar/crypto-ld/issues/43
     it.skip('should be properly multicodec encoded', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       const fingerprint = keyPair.fingerprint();
       const mcPubkeyBytes = multibase.decode(fingerprint);
 
@@ -71,19 +73,21 @@ describe('RSAKeyPair', () => {
 
   describe('verify fingerprint', () => {
     it('should verify a valid fingerprint', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       const fingerprint = keyPair.fingerprint();
-      const result = keyPair.verifyFingerprint(fingerprint);
+      const result = keyPair.verifyFingerprint({fingerprint});
       expect(result).to.exist;
       result.should.be.an('object');
       expect(result.valid).to.exist;
       result.valid.should.be.a('boolean');
       result.valid.should.be.true;
     });
+
     it('should reject an improperly encoded fingerprint', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       const fingerprint = keyPair.fingerprint();
-      const result = keyPair.verifyFingerprint(fingerprint.slice(1));
+      const result = keyPair
+        .verifyFingerprint({fingerprint: fingerprint.slice(1)});
       expect(result).to.exist;
       result.should.be.an('object');
       expect(result.valid).to.exist;
@@ -94,12 +98,12 @@ describe('RSAKeyPair', () => {
         '`fingerprint` must be a multibase encoded string.');
     });
     it('should reject an invalid fingerprint', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       const fingerprint = keyPair.fingerprint();
       // reverse the valid fingerprint
       const t = fingerprint.slice(1).split('').reverse().join('');
       const badFingerprint = fingerprint[0] + t;
-      const result = keyPair.verifyFingerprint(badFingerprint);
+      const result = keyPair.verifyFingerprint({fingerprint: badFingerprint});
       expect(result).to.exist;
       result.should.be.an('object');
       expect(result.valid).to.exist;
@@ -110,8 +114,8 @@ describe('RSAKeyPair', () => {
         'The fingerprint does not match the public key.');
     });
     it('should reject a numeric fingerprint', async () => {
-      const keyPair = await RSAKeyPair.generate();
-      const result = keyPair.verifyFingerprint(123);
+      const keyPair = await RsaVerificationKey2018.generate();
+      const result = keyPair.verifyFingerprint({fingerprint: 123});
       expect(result).to.exist;
       result.should.be.an('object');
       expect(result.valid).to.exist;
@@ -125,10 +129,12 @@ describe('RSAKeyPair', () => {
 
   describe('static from', () => {
     it('should round-trip load exported keys', async () => {
-      const keyPair = await RSAKeyPair.generate();
+      const keyPair = await RsaVerificationKey2018.generate();
       keyPair.id = '#test-id';
-      const exported = await keyPair.export({publicKey: true, privateKey: true});
-      const imported = await RSAKeyPair.from(exported);
+      const exported = await keyPair.export({
+        publicKey: true, privateKey: true
+      });
+      const imported = await RsaVerificationKey2018.from(exported);
 
       expect(await imported.export({publicKey: true, privateKey: true}))
         .to.eql(exported);
